@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="assets/style.css"/>
+  <title>Donate Items • True North</title>
+</head>
+<body>
+  <div class="container">
+    <a class="small" href="index.html">← Back</a>
+    <h1>Donate Items</h1>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>Item Name</label>
+          <input id="item" placeholder="e.g., Winter Coat"/>
+        </div>
+        <div class="col">
+          <label>Quantity</label>
+          <input id="qty" type="number" min="1" value="1"/>
+        </div>
+        <div class="col">
+          <label>Fair Market Value (each)</label>
+          <input id="fmv" type="number" step="0.01" min="0" placeholder="e.g., 40"/>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <label>Your Name (optional)</label>
+          <input id="donorName" placeholder="Name or org (optional)"/>
+        </div>
+        <div class="col">
+          <label>Notes (optional)</label>
+          <input id="donorNotes" placeholder="Condition, brand, etc."/>
+        </div>
+      </div>
+      <button id="submit">Submit Donation</button>
+    </div>
+
+    <div class="card" id="receiptCard" style="display:none">
+      <h2>Donation Receipt</h2>
+      <div id="receiptText" class="small"></div>
+      <hr/>
+      <button id="download">Download Receipt (.txt)</button>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+  <script src="assets/db.js"></script>
+  <script>
+    document.getElementById('submit').addEventListener('click', ()=>{
+      const item = document.getElementById('item').value.trim();
+      const quantity = Number(document.getElementById('qty').value||0);
+      const fmv = Number(document.getElementById('fmv').value||0);
+      const donorName = document.getElementById('donorName').value.trim();
+      const notes = document.getElementById('donorNotes').value.trim();
+
+      if(!item || quantity<=0){ toast('Please enter item and quantity','notice warn'); return; }
+
+      const rec = DB.addDonation({ item, quantity, fmv, donorName, notes });
+      const text = createReceipt(rec);
+      document.getElementById('receiptText').textContent = text;
+      document.getElementById('receiptCard').style.display = 'block';
+      toast('Donation recorded. Thank you!', 'notice success');
+
+      document.getElementById('download').onclick = ()=>downloadText(`TrueNorth-Receipt-${rec.id}.txt`, text);
+    });
+  </script>
+</body>
+</html>

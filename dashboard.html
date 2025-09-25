@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="assets/style.css"/>
+  <title>Dashboard • True North</title>
+</head>
+<body>
+  <div class="container">
+    <a class="small" href="index.html">← Back</a>
+    <h1>Dashboard</h1>
+    <div class="card">
+      <div class="row">
+        <div class="col"><input id="q" placeholder="Filter by tag or category… (e.g., Winter, Peanut)"/></div>
+        <div class="col"><select id="status"><option value="">All Statuses</option><option>open</option><option>fulfilled</option></select></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Requests</h2>
+      <table class="table" id="reqTable">
+        <thead><tr><th>ID</th><th>Category</th><th>Tags</th><th>Notes</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Donations</h2>
+      <table class="table" id="donTable">
+        <thead><tr><th>ID</th><th>Item</th><th>Qty</th><th>FMV</th><th>Total</th><th>Donor</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <button class="secondary" id="export">Export CSV</button>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+  <script src="assets/db.js"></script>
+  <script>
+    const reqBody = document.querySelector('#reqTable tbody');
+    const donBody = document.querySelector('#donTable tbody');
+
+    function render(){
+      const q = (document.getElementById('q').value||'').toLowerCase();
+      const status = document.getElementById('status').value;
+
+      const reqs = DB.listRequests().filter(r=>{
+        const hay = [r.category, (r.tags||[]).join(' '), r.notes||''].join(' ').toLowerCase();
+        const okQ = !q || hay.includes(q);
+        const okS = !status || r.status===status;
+        return okQ && okS;
+      });
+
+      reqBody.innerHTML = reqs.map(r=>{
+        const tags = (r.tags||[]).map(t=>`<span class="badge">${t}</span>`).join(' ');
+        return `<tr>
+          <td>${r.id}</td>
+          <td>${r.category}</td>
+          <td>${tags}</td>
+          <td>${(r.notes||'')}</td>
+          <td>${r.status}</td>
+          <td>${r.status==='open' ? `<button data-id="${r.id}" class="fulfill">Mark Fulfilled</button>` : ''}</td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="6" class="small">No requests yet.</td></tr>`;
+
+      donBody.innerHTML = DB.listDonations().map(d=>{
+        const total = (Number(d.fmv)||0)*(Number(d.quantity)||0);
+        return `<tr>
+          <td>${d.id}</td>
+          <td>${d.item}</td>
+          <td>${d.quantity}</td>
+          <td>${formatCurrency(d.fmv)}</td>
+          <td>${formatCurrency(total)}</td>
+          <td>${d.donorName||''}</td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="6" class="small">No donations yet.</td></tr>`;
+
+      $$('.fulfill').forEach(btn=>btn.addEventListener('click', ()=>{
+        DB.updateRequest(btn.dataset.id, {status:'fulfilled'});
+        toast('Marked fulfilled','notice success'); render();
+      }));
+    }
+
+    document.getElementById('q').addEventListener('input', render);
+    document.getElementById('status').addEventListener('change', render);
+    document.getElementById('export').addEventListener('click', ()=>{
+      const csvs = DB.exportCSV();
+      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+      downloadText(`TrueNorth-Requests-${stamp}.csv`, csvs.requests);
+      downloadText(`TrueNorth-Donations-${stamp}.csv`, csvs.donations);
+    });
+
+    render();
+  </script>
+</body>
+</html>

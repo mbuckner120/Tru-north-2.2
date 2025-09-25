@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="assets/style.css"/>
+  <title>Request Aid • True North</title>
+</head>
+<body>
+  <div class="container">
+    <a class="small" href="index.html">← Back</a>
+    <h1>Request Aid</h1>
+    <div class="card">
+      <label>Category</label>
+      <select id="category">
+        <option value="">Select…</option>
+        <option>Clothing</option>
+        <option>Food</option>
+        <option>Toiletries</option>
+        <option>School Supplies</option>
+        <option>Household Items</option>
+        <option>Other / Specific Item</option>
+      </select>
+
+      <div id="dynamic"></div>
+
+      <label>Notes (optional)</label>
+      <textarea id="notes" placeholder="Anything else we should know?"></textarea>
+
+      <button id="submit">Submit Request</button>
+    </div>
+  </div>
+  <script src="assets/app.js"></script>
+  <script src="assets/db.js"></script>
+  <script>
+    const dynamic = document.getElementById('dynamic');
+    const categoryEl = document.getElementById('category');
+
+    function renderDynamic(cat){
+      dynamic.innerHTML = '';
+      if(!cat) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'row';
+
+      if(cat==='Clothing'){
+        wrap.innerHTML = `
+          <div class="col">
+            <label>Who is it for?</label>
+            <select id="clo_who">
+              <option>Child</option><option>Adult</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Top Size</label>
+            <input id="clo_top" placeholder="e.g., Child 8 or Adult M"/>
+          </div>
+          <div class="col">
+            <label>Bottom Size</label>
+            <input id="clo_bottom" placeholder="e.g., 10-12 or 32x30"/>
+          </div>
+          <div class="col">
+            <label>Shoe Size</label>
+            <input id="clo_shoe" placeholder="e.g., 1Y or 9.5"/>
+          </div>
+          <div class="col">
+            <label>Seasonal Needs</label>
+            <select id="clo_season">
+              <option>None</option><option>Winter Gear</option><option>Rain Gear</option>
+            </select>
+          </div>
+        `;
+      } else if(cat==='Food'){
+        wrap.innerHTML = `
+          <div class="col">
+            <label>Allergies</label>
+            <input id="food_allergy" placeholder="e.g., peanuts, gluten, dairy"/>
+          </div>
+          <div class="col">
+            <label>Dietary Preference</label>
+            <select id="food_diet">
+              <option>None</option><option>Vegetarian</option><option>Vegan</option><option>Halal</option><option>Kosher</option>
+            </select>
+          </div>
+        `;
+      } else if(cat==='Toiletries'){
+        wrap.innerHTML = `
+          <div class="col">
+            <label>Choose items</label>
+            <select id="toi_items" multiple size="6">
+              <option>Soap</option><option>Shampoo</option><option>Toothpaste</option>
+              <option>Deodorant</option><option>Menstrual Products</option><option>Diapers</option>
+            </select>
+          </div>
+        `;
+      } else if(cat==='School Supplies'){
+        wrap.innerHTML = `
+          <div class="col">
+            <label>Grade Level</label>
+            <select id="sch_grade">
+              <option>Elementary</option><option>Middle School</option><option>High School</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Specific Needs (optional)</label>
+            <input id="sch_need" placeholder="e.g., crayons, notebooks, calculator"/>
+          </div>
+        `;
+      } else if(cat==='Household Items'){
+        wrap.innerHTML = `
+          <div class="col">
+            <label>Household Needs</label>
+            <select id="home_items" multiple size="6">
+              <option>Bedding</option><option>Cookware</option><option>Dishes</option>
+              <option>Cleaning Supplies</option><option>Space Heater</option><option>Fans</option>
+            </select>
+          </div>
+        `;
+      } else if(cat==='Other / Specific Item'){
+        wrap.innerHTML = `
+          <div class="col" style="flex:1 1 100%">
+            <label>Specific Item Request</label>
+            <input id="other_item" placeholder="Describe the exact item and quantity"/>
+          </div>
+        `;
+      }
+      dynamic.appendChild(wrap);
+    }
+
+    categoryEl.addEventListener('change', e=>renderDynamic(e.target.value));
+
+    document.getElementById('submit').addEventListener('click', ()=>{
+      const cat = categoryEl.value;
+      if(!cat){ toast('Please choose a category','notice warn'); return; }
+
+      const notes = document.getElementById('notes').value.trim();
+      const data = { category: cat, notes, tags: [] };
+
+      if(cat==='Clothing'){
+        const who = $('#clo_who').value, top=$('#clo_top').value, bottom=$('#clo_bottom').value, shoe=$('#clo_shoe').value, season=$('#clo_season').value;
+        data.details = { who, top, bottom, shoe, season };
+        data.tags.push(`Clothing`, season!=='None'?season:null, who).filter(Boolean);
+      }
+      if(cat==='Food'){
+        const allergy = $('#food_allergy').value, diet=$('#food_diet').value;
+        data.details = { allergy, diet };
+        if(allergy) data.tags.push('Food', `Allergy:${allergy}`);
+        if(diet && diet!=='None') data.tags.push(`Diet:${diet}`);
+      }
+      if(cat==='Toiletries'){
+        const items = Array.from($('#toi_items').selectedOptions).map(o=>o.value);
+        data.details = { items };
+        data.tags.push('Toiletries', ...items.map(i=>'Toiletry:'+i));
+      }
+      if(cat==='School Supplies'){
+        const grade = $('#sch_grade').value, need=$('#sch_need').value;
+        data.details = { grade, need };
+        data.tags.push('School', `Grade:${grade}`);
+        if(need) data.tags.push('Need:'+need);
+      }
+      if(cat==='Household Items'){
+        const items = Array.from($('#home_items').selectedOptions).map(o=>o.value);
+        data.details = { items };
+        data.tags.push('Household', ...items.map(i=>'House:'+i));
+      }
+      if(cat==='Other / Specific Item'){
+        const item = $('#other_item').value;
+        data.details = { item };
+        data.tags.push('Specific', 'Other');
+      }
+
+      const rec = DB.addRequest(data);
+      toast('Request submitted. ID '+rec.id, 'notice success');
+      setTimeout(()=>location.href='dashboard.html',800);
+    });
+  </script>
+</body>
+</html>
